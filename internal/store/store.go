@@ -19,30 +19,39 @@ var ErrNotFound = errors.New("vault not found")
 // Store reads and writes the encrypted vault at Path.
 type Store struct {
 	Path string
+	fs   FS
 }
 
 // New returns a Store at the given path. If path is empty, it defaults
 // to $XDG_CONFIG_HOME/envii/vault.age (or ~/.config/envii/vault.age).
-func New(path string) (*Store, error) {
-	if path == "" {
-		dir, err := os.UserConfigDir()
+// Optional Option values configure FS or override path.
+func New(path string, opts ...Option) (*Store, error) {
+	s := &Store{Path: path, fs: OSFS{}}
+	for _, opt := range opts {
+		opt(s)
+	}
+	if s.fs == nil {
+		s.fs = OSFS{}
+	}
+	if s.Path == "" {
+		dir, err := s.fs.UserConfigDir()
 		if err != nil {
 			return nil, fmt.Errorf("resolve config dir: %w", err)
 		}
-		path = filepath.Join(dir, "envii", "vault.age")
+		s.Path = filepath.Join(dir, "envii", "vault.age")
 	}
-	return &Store{Path: path}, nil
+	return s, nil
 }
 
 // Exists reports whether a vault file is present on disk.
 func (s *Store) Exists() bool {
-	_, err := os.Stat(s.Path)
+	_, err := s.fs.Stat(s.Path)
 	return err == nil
 }
 
 // Load decrypts and parses the vault using the passphrase.
 func (s *Store) Load(passphrase string) (*model.Vault, error) {
-	data, err := os.ReadFile(s.Path)
+	data, err := s.fs.ReadFile(s.Path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, ErrNotFound
 	}
@@ -76,16 +85,16 @@ func (s *Store) Save(v *model.Vault, passphrase string) error {
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(s.Path), 0o700); err != nil {
+	if err := s.fs.MkdirAll(filepath.Dir(s.Path), 0o700); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 
 	// Atomic write: temp file then rename.
 	tmp := s.Path + ".tmp"
-	if err := os.WriteFile(tmp, cipher, 0o600); err != nil {
+	if err := s.fs.WriteFile(tmp, cipher, 0o600); err != nil {
 		return fmt.Errorf("write temp vault: %w", err)
 	}
-	if err := os.Rename(tmp, s.Path); err != nil {
+	if err := s.fs.Rename(tmp, s.Path); err != nil {
 		return fmt.Errorf("commit vault: %w", err)
 	}
 	return nil

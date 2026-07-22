@@ -1,0 +1,21 @@
+# mockery v3 — in-package mocks next to interfaces
+dir: '{{.InterfaceDir}}'
+filename: 'mock_{{.InterfaceName | snakecase}}.go'
+force-file-write: true
+formatter: goimports
+structname: 'Mock{{.InterfaceName}}'
+pkgname: '{{.SrcPackageName}}'
+template: testify
+packages:
+  github.com/trickylab/envii/internal/model:
+    interfaces:
+      Clock:
+  github.com/trickylab/envii/internal/store:
+    interfaces:
+      FS:
+  github.com/trickylab/envii/internal/runner:
+    interfaces:
+      Executor:
+  github.com/trickylab/envii/internal/cli:
+    interfaces:
+      IO:

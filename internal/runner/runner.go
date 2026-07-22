@@ -14,23 +14,26 @@ import (
 
 // Run executes argv with the env vars injected on top of the current
 // process environment. It streams stdio and returns the command's exit code.
+// Convenience wrapper around New().Run for existing callers.
 func Run(env *model.Env, argv []string) (int, error) {
+	return New().Run(env, argv)
+}
+
+// Run executes argv with the env vars injected on top of the current
+// process environment. It streams stdio and returns the command's exit code.
+func (r *Runner) Run(env *model.Env, argv []string) (int, error) {
 	if len(argv) == 0 {
 		return 1, fmt.Errorf("no command provided")
 	}
 
-	cmd := exec.Command(argv[0], argv[1:]...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Env = os.Environ()
+	environ := os.Environ()
 	for k, v := range env.Map() {
-		cmd.Env = append(cmd.Env, k+"="+v)
+		environ = append(environ, k+"="+v)
 	}
 
-	if err := cmd.Run(); err != nil {
+	if err := r.exec.Run(argv, environ, os.Stdin, os.Stdout, os.Stderr); err != nil {
 		var exitErr *exec.ExitError
-		if ok := asExitError(err, &exitErr); ok {
+		if asExitError(err, &exitErr) {
 			return exitErr.ExitCode(), nil
 		}
 		return 1, err
