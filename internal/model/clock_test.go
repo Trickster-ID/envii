@@ -25,3 +25,13 @@ func TestNewVaultUsesInjectedClock(t *testing.T) {
 		})
 	}
 }
+
+func TestNewVaultNilClockFallsBack(t *testing.T) {
+	v := model.NewVault(model.WithClock(nil))
+	if v.UpdatedAt.IsZero() {
+		t.Fatal("UpdatedAt should be set via fallback clock")
+	}
+	if v.Version != 1 {
+		t.Fatalf("version %d", v.Version)
+	}
+}
