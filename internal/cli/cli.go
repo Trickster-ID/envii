@@ -16,6 +16,12 @@ import (
 
 var vaultPath string
 
+// runProgram starts the TUI; overridden in tests.
+var runProgram = func(m tea.Model) error {
+	_, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
+	return err
+}
+
 // Execute runs the root command.
 func Execute(version string) error {
 	root := &cobra.Command{
@@ -61,9 +67,7 @@ func runTUI(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	p := tea.NewProgram(tui.New(vault, s, pass), tea.WithAltScreen())
-	_, err = p.Run()
-	return err
+	return runProgram(tui.New(vault, s, pass))
 }
 
 // loadVault is a helper shared by non-TUI subcommands.

@@ -13,6 +13,9 @@ import (
 	"github.com/trickylab/envii/internal/runner"
 )
 
+// exitFunc is os.Exit; overridden in tests.
+var exitFunc = os.Exit
+
 // runCmd: envii run <project> <env> -- <command...>
 func runCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -50,7 +53,7 @@ func runCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			os.Exit(code)
+			exitFunc(code)
 			return nil
 		},
 	}
