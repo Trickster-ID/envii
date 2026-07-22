@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"io"
@@ -934,4 +935,130 @@ func TestOSIOReadPasswordSmoke(t *testing.T) {
 	// May fail without TTY; just exercise the method.
 	_, err := (OSIO{}).ReadPassword(0)
 	_ = err
+}
+
+func TestStoreNewErrorPaths(t *testing.T) {
+	// Empty vault path + broken config dir → store.New fails in loadVault/runTUI.
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+	withVaultPath(t, "")
+
+	t.Run("loadVault", func(t *testing.T) {
+		_, _, _, err := loadVault()
+		if err == nil {
+			t.Skip("store.New did not fail on this platform with empty HOME")
+		}
+	})
+	t.Run("runTUI", func(t *testing.T) {
+		err := runTUI(nil, nil)
+		if err == nil {
+			t.Skip("store.New did not fail on this platform with empty HOME")
+		}
+	})
+}
+
+func TestRunTUISaveError(t *testing.T) {
+	// Parent path is a file → MkdirAll/Save fails when creating new vault.
+	dir := t.TempDir()
+	blocker := filepath.Join(dir, "blocked")
+	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	withVaultPath(t, filepath.Join(blocker, "vault.age"))
+	withIO(t, &fakeIO{
+		env:    map[string]string{"ENVII_PASSPHRASE": "pass"},
+		stdin:  &bytes.Buffer{},
+		stdout: &bytes.Buffer{},
+		stderr: &bytes.Buffer{},
+	})
+	if err := runTUI(nil, nil); err == nil {
+		t.Fatal("expected save error")
+	}
+}
+
+func TestRunCmdExecError(t *testing.T) {
+	pass := "secret"
+	path := filepath.Join(t.TempDir(), "vault.age")
+	seedVault(t, path, pass, sampleVault())
+	withVaultPath(t, path)
+	withIO(t, &fakeIO{
+		env:    map[string]string{"ENVII_PASSPHRASE": pass},
+		stdin:  &bytes.Buffer{},
+		stdout: &bytes.Buffer{},
+		stderr: &bytes.Buffer{},
+	})
+	_ = withExit(t)
+	cmd := runCmd()
+	cmd.SetArgs([]string{"api", "dev", "--", "/no/such/envii/command/xyz"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected exec error")
+	}
+}
+
+func TestImportSaveError(t *testing.T) {
+	pass := "secret"
+	dir := t.TempDir()
+	path := filepath.Join(dir, "vault.age")
+	seedVault(t, path, pass, sampleVault())
+	withVaultPath(t, path)
+
+	envFile := filepath.Join(t.TempDir(), ".env")
+	if err := os.WriteFile(envFile, []byte("EXTRA=1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Make vault dir read-only so Save fails after successful load/import merge.
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+
+	withIO(t, &fakeIO{
+		env:    map[string]string{"ENVII_PASSPHRASE": pass},
+		stdin:  bytes.NewBufferString("1\n1\n"),
+		stdout: &bytes.Buffer{},
+		stderr: &bytes.Buffer{},
+	})
+	cmd := importCmd()
+	cmd.SetArgs([]string{"-f", envFile})
+	if err := cmd.Execute(); err == nil {
+		// some OS still allow write by owner; force skip if not enforced
+		t.Skip("chmod did not block save on this platform")
+	}
+}
+
+func TestPromptProjectLineError(t *testing.T) {
+	_, err := promptProject(bufio.NewReader(errReader{}), &model.Vault{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestPromptEnvLineError(t *testing.T) {
+	_, err := promptEnv(bufio.NewReader(errReader{}), &model.Project{Name: "api"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+type errReader struct{}
+
+func (errReader) Read([]byte) (int, error) { return 0, errors.New("read fail") }
+
+func TestImportLoadVaultError(t *testing.T) {
+	envFile := filepath.Join(t.TempDir(), ".env")
+	if err := os.WriteFile(envFile, []byte("A=1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	withVaultPath(t, filepath.Join(t.TempDir(), "missing.age"))
+	withIO(t, &fakeIO{
+		env:    map[string]string{"ENVII_PASSPHRASE": "x"},
+		stdin:  &bytes.Buffer{},
+		stdout: &bytes.Buffer{},
+		stderr: &bytes.Buffer{},
+	})
+	cmd := importCmd()
+	cmd.SetArgs([]string{"-f", envFile})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected loadVault error")
+	}
 }
