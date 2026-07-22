@@ -62,6 +62,7 @@ type Model struct {
 
 	width  int
 	height int
+	offset int // list viewport scroll offset (filtered-row index)
 
 	status string
 	errMsg string
@@ -90,6 +91,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		sel, total := m.filteredSelection()
+		m.syncOffset(sel, total)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -149,6 +152,8 @@ func (m *Model) moveCursor(delta int) {
 	case levelVars:
 		m.vIdx = clamp(m.vIdx+delta, len(m.currentEnv().Vars))
 	}
+	sel, total := m.filteredSelection()
+	m.syncOffset(sel, total)
 }
 
 func (m *Model) descend() {
@@ -159,6 +164,7 @@ func (m *Model) descend() {
 		}
 		m.level = levelEnvs
 		m.eIdx = 0
+		m.offset = 0
 	case levelEnvs:
 		if len(m.currentProject().Envs) == 0 {
 			return
@@ -166,6 +172,7 @@ func (m *Model) descend() {
 		m.level = levelVars
 		m.vIdx = 0
 		m.reveal = map[int]bool{}
+		m.offset = 0
 	}
 }
 
@@ -173,8 +180,10 @@ func (m *Model) ascend() {
 	switch m.level {
 	case levelVars:
 		m.level = levelEnvs
+		m.offset = 0
 	case levelEnvs:
 		m.level = levelProjects
+		m.offset = 0
 	}
 }
 
@@ -221,6 +230,8 @@ func (m *Model) deleteCurrent() {
 	}
 	m.dirty = true
 	m.status = "deleted (press s to save)"
+	sel, total := m.filteredSelection()
+	m.syncOffset(sel, total)
 }
 
 func (m Model) save() tea.Cmd {
@@ -312,6 +323,7 @@ func (m Model) updateInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		if m.inputMode == inputSearch {
 			m.search = "" // clear filter on esc
+			m.offset = 0
 		}
 		m.inputMode = inputNone
 		m.input.Blur()
@@ -331,6 +343,8 @@ func (m Model) updateInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.input, cmd = m.input.Update(msg)
 		m.search = m.input.Value()
+		sel, total := m.filteredSelection()
+		m.syncOffset(sel, total)
 		return m, cmd
 	}
 	var cmd tea.Cmd
@@ -428,6 +442,63 @@ func clamp(i, n int) int {
 
 func removeAt[T any](s []T, i int) []T {
 	return append(s[:i], s[i+1:]...)
+}
+
+
+func (m Model) visibleRows() int {
+	inputActive := m.inputMode != inputNone
+	hasStatus := m.errMsg != "" || m.status != ""
+	return listVisible(m.height, chromeLines(inputActive, hasStatus))
+}
+
+// syncOffset keeps the selected filtered-row index on screen.
+// selectedInFiltered is index within filtered list; use -1 if none selected/matched.
+func (m *Model) syncOffset(selectedInFiltered, filteredTotal int) {
+	vis := m.visibleRows()
+	cur := selectedInFiltered
+	if cur < 0 {
+		cur = 0
+	}
+	m.offset = ensureOffset(m.offset, cur, vis, filteredTotal)
+}
+
+// filteredSelection returns (index among items matching search, filtered count).
+func (m Model) filteredSelection() (sel, total int) {
+	q := strings.ToLower(m.search)
+	sel = -1
+	switch m.level {
+	case levelProjects:
+		for i, p := range m.vault.Projects {
+			if q != "" && !strings.Contains(strings.ToLower(p.Name), q) {
+				continue
+			}
+			if i == m.pIdx {
+				sel = total
+			}
+			total++
+		}
+	case levelEnvs:
+		for i, e := range m.currentProject().Envs {
+			if q != "" && !strings.Contains(strings.ToLower(e.Name), q) {
+				continue
+			}
+			if i == m.eIdx {
+				sel = total
+			}
+			total++
+		}
+	case levelVars:
+		for i, v := range m.currentEnv().Vars {
+			if q != "" && !strings.Contains(strings.ToLower(v.Key), q) && !strings.Contains(strings.ToLower(v.Value), q) {
+				continue
+			}
+			if i == m.vIdx {
+				sel = total
+			}
+			total++
+		}
+	}
+	return sel, total
 }
 
 func (m *Model) importFile(path string) error {
