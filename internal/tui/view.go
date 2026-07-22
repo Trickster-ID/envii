@@ -78,6 +78,8 @@ func (m Model) breadcrumb() string {
 func (m Model) list() string {
 	q := strings.ToLower(m.search)
 	var rows []string
+	selectedInFiltered := -1
+
 	switch m.level {
 	case levelProjects:
 		if len(m.vault.Projects) == 0 {
@@ -86,6 +88,9 @@ func (m Model) list() string {
 		for i, p := range m.vault.Projects {
 			if q != "" && !strings.Contains(strings.ToLower(p.Name), q) {
 				continue
+			}
+			if i == m.pIdx {
+				selectedInFiltered = len(rows)
 			}
 			rows = append(rows, m.row(i == m.pIdx, fmt.Sprintf("%s (%d envs)", p.Name, len(p.Envs))))
 		}
@@ -98,6 +103,9 @@ func (m Model) list() string {
 			if q != "" && !strings.Contains(strings.ToLower(e.Name), q) {
 				continue
 			}
+			if i == m.eIdx {
+				selectedInFiltered = len(rows)
+			}
 			rows = append(rows, m.row(i == m.eIdx, fmt.Sprintf("%s (%d vars)", e.Name, len(e.Vars))))
 		}
 	case levelVars:
@@ -109,6 +117,9 @@ func (m Model) list() string {
 			if q != "" && !strings.Contains(strings.ToLower(v.Key), q) && !strings.Contains(strings.ToLower(v.Value), q) {
 				continue
 			}
+			if i == m.vIdx {
+				selectedInFiltered = len(rows)
+			}
 			val := v.Value
 			if v.Secret && !m.reveal[i] {
 				val = secretStyle.Render(mask(v.Value))
@@ -116,10 +127,22 @@ func (m Model) list() string {
 			rows = append(rows, m.row(i == m.vIdx, fmt.Sprintf("%-24s %s", v.Key, val)))
 		}
 	}
+
 	if len(rows) == 0 && q != "" {
 		return normalStyle.Render(fmt.Sprintf("  no results for %q", q))
 	}
-	return strings.Join(rows, "\n")
+
+	vis := m.visibleRows()
+	cur := selectedInFiltered
+	if cur < 0 {
+		cur = 0
+	}
+	off := ensureOffset(m.offset, cur, vis, len(rows))
+	end := off + vis
+	if end > len(rows) {
+		end = len(rows)
+	}
+	return strings.Join(rows[off:end], "\n")
 }
 
 func (m Model) row(selected bool, text string) string {
