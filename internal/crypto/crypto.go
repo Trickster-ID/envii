@@ -13,6 +13,14 @@ import (
 // workFactor is the scrypt log2 work factor used for vault encryption.
 var workFactor = 15
 
+// Test seams (production defaults). Override in tests to force error paths.
+var (
+	newScryptRecipient = age.NewScryptRecipient
+	newScryptIdentity  = age.NewScryptIdentity
+	ageEncrypt         = age.Encrypt
+	ageDecrypt         = age.Decrypt
+)
+
 // SetWorkFactor overrides the scrypt work factor. Intended for tests that
 // need fast encryption; production code should leave the default.
 func SetWorkFactor(n int) { workFactor = n }
@@ -20,7 +28,7 @@ func SetWorkFactor(n int) { workFactor = n }
 // Encrypt encrypts plaintext with the given passphrase, returning the
 // armored age ciphertext bytes.
 func Encrypt(plaintext []byte, passphrase string) ([]byte, error) {
-	recipient, err := age.NewScryptRecipient(passphrase)
+	recipient, err := newScryptRecipient(passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("create recipient: %w", err)
 	}
@@ -29,7 +37,7 @@ func Encrypt(plaintext []byte, passphrase string) ([]byte, error) {
 	recipient.SetWorkFactor(workFactor)
 
 	var buf bytes.Buffer
-	w, err := age.Encrypt(&buf, recipient)
+	w, err := ageEncrypt(&buf, recipient)
 	if err != nil {
 		return nil, fmt.Errorf("init encrypt: %w", err)
 	}
@@ -44,12 +52,12 @@ func Encrypt(plaintext []byte, passphrase string) ([]byte, error) {
 
 // Decrypt decrypts age ciphertext with the given passphrase.
 func Decrypt(ciphertext []byte, passphrase string) ([]byte, error) {
-	identity, err := age.NewScryptIdentity(passphrase)
+	identity, err := newScryptIdentity(passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("create identity: %w", err)
 	}
 
-	r, err := age.Decrypt(bytes.NewReader(ciphertext), identity)
+	r, err := ageDecrypt(bytes.NewReader(ciphertext), identity)
 	if err != nil {
 		return nil, fmt.Errorf("init decrypt (wrong passphrase?): %w", err)
 	}

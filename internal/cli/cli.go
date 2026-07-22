@@ -8,7 +8,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/trickylab/envii/internal/model"
 	"github.com/trickylab/envii/internal/store"
@@ -16,6 +15,12 @@ import (
 )
 
 var vaultPath string
+
+// runProgram starts the TUI; overridden in tests.
+var runProgram = func(m tea.Model) error {
+	_, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
+	return err
+}
 
 // Execute runs the root command.
 func Execute(version string) error {
@@ -62,9 +67,7 @@ func runTUI(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	p := tea.NewProgram(tui.New(vault, s, pass), tea.WithAltScreen())
-	_, err = p.Run()
-	return err
+	return runProgram(tui.New(vault, s, pass))
 }
 
 // loadVault is a helper shared by non-TUI subcommands.
@@ -102,12 +105,17 @@ func resolveEnv(v *model.Vault, projectName, envName string) (*model.Env, error)
 
 func promptPassphrase(label string) (string, error) {
 	// Allow bypassing the interactive prompt via env var (useful for demos/CI).
-	if p := os.Getenv("ENVII_PASSPHRASE"); p != "" {
+	if p := defaultIO.Getenv("ENVII_PASSPHRASE"); p != "" {
 		return p, nil
 	}
-	fmt.Fprint(os.Stderr, label)
-	b, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Fprintln(os.Stderr)
+	fmt.Fprint(defaultIO.Stderr(), label)
+	// ReadPassword needs a real terminal fd when using OSIO; tests inject IO.
+	fd := 0
+	if f, ok := defaultIO.Stdin().(*os.File); ok {
+		fd = int(f.Fd())
+	}
+	b, err := defaultIO.ReadPassword(fd)
+	fmt.Fprintln(defaultIO.Stderr())
 	if err != nil {
 		return "", fmt.Errorf("read passphrase: %w", err)
 	}

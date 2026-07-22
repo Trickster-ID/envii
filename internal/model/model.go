@@ -34,8 +34,16 @@ type Var struct {
 }
 
 // NewVault returns an empty vault with the current schema version.
-func NewVault() *Vault {
-	return &Vault{Version: 1, UpdatedAt: time.Now(), Projects: []*Project{}}
+// Optional VaultOption values (e.g. WithClock) configure construction.
+func NewVault(opts ...VaultOption) *Vault {
+	o := vaultOptions{clock: ClockFunc(time.Now)}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	if o.clock == nil {
+		o.clock = ClockFunc(time.Now)
+	}
+	return &Vault{Version: 1, UpdatedAt: o.clock.Now(), Projects: []*Project{}}
 }
 
 // FindProject returns the project with the given name, or nil.

@@ -12,7 +12,10 @@ func init() { crypto.SetWorkFactor(10) }
 
 func TestSaveLoad(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "vault.age")
-	s := &Store{Path: path}
+	s, err := New(path)
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
 
 	if s.Exists() {
 		t.Fatal("expected vault to not exist yet")
@@ -48,7 +51,10 @@ func TestSaveLoad(t *testing.T) {
 }
 
 func TestLoadNotFound(t *testing.T) {
-	s := &Store{Path: filepath.Join(t.TempDir(), "missing.age")}
+	s, err := New(filepath.Join(t.TempDir(), "missing.age"))
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
 	if _, err := s.Load("x"); err != ErrNotFound {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}

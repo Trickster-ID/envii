@@ -13,6 +13,9 @@ import (
 	"github.com/trickylab/envii/internal/runner"
 )
 
+// exitFunc is os.Exit; overridden in tests.
+var exitFunc = os.Exit
+
 // runCmd: envii run <project> <env> -- <command...>
 func runCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -50,7 +53,7 @@ func runCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			os.Exit(code)
+			exitFunc(code)
 			return nil
 		},
 	}
@@ -76,13 +79,13 @@ func exportCmd() *cobra.Command {
 
 			content := runner.Dotenv(env)
 			if out == "" {
-				fmt.Print(content)
+				fmt.Fprint(defaultIO.Stdout(), content)
 				return nil
 			}
 			if err := os.WriteFile(out, []byte(content), 0o600); err != nil {
 				return fmt.Errorf("write %s: %w", out, err)
 			}
-			fmt.Fprintf(os.Stderr, "wrote %s\n", out)
+			fmt.Fprintf(defaultIO.Stderr(), "wrote %s\n", out)
 			return nil
 		},
 	}
@@ -124,7 +127,7 @@ func importCmd() *cobra.Command {
 				return err
 			}
 
-			in := bufio.NewReader(os.Stdin)
+			in := bufio.NewReader(defaultIO.Stdin())
 			project, err := promptProject(in, v)
 			if err != nil {
 				return err
@@ -136,13 +139,13 @@ func importCmd() *cobra.Command {
 
 			summary := model.ImportVars(env, vars, overwrite)
 			if summary.Added == 0 && summary.Overwritten == 0 {
-				fmt.Fprintf(os.Stderr, "imported into %s/%s: 0 added, 0 overwritten, %d skipped; vault unchanged\n", project.Name, env.Name, summary.Skipped)
+				fmt.Fprintf(defaultIO.Stderr(), "imported into %s/%s: 0 added, 0 overwritten, %d skipped; vault unchanged\n", project.Name, env.Name, summary.Skipped)
 				return nil
 			}
 			if err := s.Save(v, pass); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "imported into %s/%s: %d added, %d overwritten, %d skipped\n", project.Name, env.Name, summary.Added, summary.Overwritten, summary.Skipped)
+			fmt.Fprintf(defaultIO.Stderr(), "imported into %s/%s: %d added, %d overwritten, %d skipped\n", project.Name, env.Name, summary.Added, summary.Overwritten, summary.Skipped)
 			return nil
 		},
 	}
@@ -152,9 +155,9 @@ func importCmd() *cobra.Command {
 }
 
 func promptProject(in *bufio.Reader, vault *model.Vault) (*model.Project, error) {
-	fmt.Fprintln(os.Stderr, "Select project or enter a new name:")
+	fmt.Fprintln(defaultIO.Stderr(), "Select project or enter a new name:")
 	for i, p := range vault.Projects {
-		fmt.Fprintf(os.Stderr, "  %d) %s\n", i+1, p.Name)
+		fmt.Fprintf(defaultIO.Stderr(), "  %d) %s\n", i+1, p.Name)
 	}
 	choice, err := promptLine(in, "Project: ")
 	if err != nil {
@@ -176,9 +179,9 @@ func promptProject(in *bufio.Reader, vault *model.Vault) (*model.Project, error)
 }
 
 func promptEnv(in *bufio.Reader, project *model.Project) (*model.Env, error) {
-	fmt.Fprintf(os.Stderr, "Select env for %s or enter a new name:\n", project.Name)
+	fmt.Fprintf(defaultIO.Stderr(), "Select env for %s or enter a new name:\n", project.Name)
 	for i, e := range project.Envs {
-		fmt.Fprintf(os.Stderr, "  %d) %s\n", i+1, e.Name)
+		fmt.Fprintf(defaultIO.Stderr(), "  %d) %s\n", i+1, e.Name)
 	}
 	choice, err := promptLine(in, "Env: ")
 	if err != nil {
@@ -200,7 +203,7 @@ func promptEnv(in *bufio.Reader, project *model.Project) (*model.Env, error) {
 }
 
 func promptLine(in *bufio.Reader, label string) (string, error) {
-	fmt.Fprint(os.Stderr, label)
+	fmt.Fprint(defaultIO.Stderr(), label)
 	line, err := in.ReadString('\n')
 	if err != nil && len(line) == 0 {
 		return "", fmt.Errorf("read input: %w", err)
