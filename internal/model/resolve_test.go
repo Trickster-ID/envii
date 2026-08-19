@@ -9,7 +9,7 @@ import (
 
 func TestMergeEnvs(t *testing.T) {
 	base := &Env{Name: "shared", Vars: []*Var{
-		{Key: "DB_HOST", Value: "localhost"},
+		{Key: "DB_HOST", Value: "localhost", Secret: true},
 		{Key: "SECRET_A", Value: "base-secret", Secret: true},
 	}}
 	override := &Env{Name: "prod", Vars: []*Var{
@@ -39,7 +39,7 @@ func TestMergeEnvs(t *testing.T) {
 		t.Fatal("inputs were mutated")
 	}
 	if got.Vars[0].Secret {
-		t.Fatal("override entry at index 0 must be the copied base entry; DB_HOST override should not be secret")
+		t.Fatal("override must win whole: DB_HOST must not be secret after merge")
 	}
 	if base.Vars[0].Value != "localhost" || override.Vars[0].Value != "prod-db.internal" {
 		t.Fatal("input var values mutated")
