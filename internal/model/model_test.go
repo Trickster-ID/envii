@@ -1,6 +1,24 @@
 package model
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
+
+func TestEnvBaseJSONRoundTrip(t *testing.T) {
+	raw := []byte(`{"name":"prod","base":"shared","vars":[]}`)
+	var e Env
+	if err := json.Unmarshal(raw, &e); err != nil {
+		t.Fatal(err)
+	}
+	if e.Base != "shared" {
+		t.Fatalf("Base = %q", e.Base)
+	}
+	out, _ := json.Marshal(&Env{Name: "dev"})
+	if string(out) != `{"name":"dev","vars":null}` {
+		t.Fatalf("Base must be omitted when empty, got %s", out)
+	}
+}
 
 func TestNewVault(t *testing.T) {
 	v := NewVault()
