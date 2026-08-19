@@ -66,6 +66,16 @@ func (p *Project) FindEnv(name string) *Env {
 	return nil
 }
 
+// FindVar returns the var with the given key, or nil.
+func (e *Env) FindVar(key string) *Var {
+	for _, v := range e.Vars {
+		if v.Key == key {
+			return v
+		}
+	}
+	return nil
+}
+
 // Map converts an env's vars to a plain key/value map.
 func (e *Env) Map() map[string]string {
 	m := make(map[string]string, len(e.Vars))
