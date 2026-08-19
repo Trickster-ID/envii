@@ -73,6 +73,12 @@ envii export my-api prod              # print to stdout
 envii export my-api prod -o .env      # write to a file
 ```
 
+### Load an env into your shell
+```sh
+eval "$(envii env my-api dev)"
+```
+Prints eval-able `export KEY='value'` lines. Works with POSIX shells (bash/zsh).
+
 ### Import from a `.env` file
 ```sh
 envii import -f .env.production

@@ -93,6 +93,30 @@ func exportCmd() *cobra.Command {
 	return cmd
 }
 
+// envCmd: envii env <project> <env>  (eval-able export lines)
+func envCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "env <project> <env>",
+		Short: "Print shell export statements for an env (eval-able)",
+		Example: `  eval "$(envii env my-api dev)"
+  eval "$(envii env my-api prod)" && ./run-migrations`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			v, _, _, err := loadVault()
+			if err != nil {
+				return err
+			}
+			env, err := resolveEnv(v, args[0], args[1])
+			if err != nil {
+				return err
+			}
+			fmt.Fprint(defaultIO.Stdout(), runner.Shell(env))
+			return nil
+		},
+	}
+	return cmd
+}
+
 // importCmd: envii import -f .env.production [--overwrite]
 func importCmd() *cobra.Command {
 	var file string
