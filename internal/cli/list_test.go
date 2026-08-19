@@ -160,3 +160,51 @@ func TestLsCmd(t *testing.T) {
 	})
 }
 
+func TestCompleteVault(t *testing.T) {
+	pass := "secret"
+	path := filepath.Join(t.TempDir(), "vault.age")
+	seedVault(t, path, pass, sampleVault())
+	withVaultPath(t, path)
+	withIO(t, &fakeIO{
+		env:    map[string]string{"ENVII_PASSPHRASE": pass},
+		stdin:  &bytes.Buffer{},
+		stdout: &bytes.Buffer{},
+		stderr: &bytes.Buffer{},
+	})
+
+	tests := []struct {
+		name string
+		pos  int
+		args []string
+		want []string
+	}{
+		{"projects", 0, nil, []string{"api"}},
+		{"envs", 1, []string{"api"}, []string{"dev"}},
+		{"keys", 2, []string{"api", "dev"}, []string{"PORT", "TOKEN"}},
+		{"wrong pos", 0, []string{"api"}, nil},
+		{"missing project", 1, []string{"web"}, nil},
+		{"missing env", 2, []string{"api", "prod"}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _ := completeVault(tt.pos)(nil, tt.args, "")
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("got %v want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCompleteVaultLoadError(t *testing.T) {
+	withVaultPath(t, filepath.Join(t.TempDir(), "missing.age"))
+	withIO(t, &fakeIO{
+		env:    map[string]string{"ENVII_PASSPHRASE": "x"},
+		stdin:  &bytes.Buffer{},
+		stdout: &bytes.Buffer{},
+		stderr: &bytes.Buffer{},
+	})
+	got, _ := completeVault(0)(nil, nil, "")
+	if got != nil {
+		t.Fatalf("got %v want nil", got)
+	}
+}

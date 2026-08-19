@@ -89,3 +89,31 @@ func lsCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&long, "long", "l", false, "show secret markers and base envs")
 	return cmd
 }
+
+// completeVault returns suggestions from loadVault for the given positional
+// arg: pos 0 = projects, 1 = envs of args[0], 2 = keys of args[0]/args[1].
+func completeVault(pos int) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+	return func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+		if len(args) != pos {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		v, _, _, err := loadVault()
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		switch pos {
+		case 0:
+			return projectNames(v), cobra.ShellCompDirectiveNoFileComp
+		case 1:
+			if p := v.FindProject(args[0]); p != nil {
+				return envNames(p), cobra.ShellCompDirectiveNoFileComp
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		default:
+			if e, err := resolveEnv(v, args[0], args[1]); err == nil {
+				return keyNames(e), cobra.ShellCompDirectiveNoFileComp
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+	}
+}
