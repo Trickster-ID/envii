@@ -73,6 +73,14 @@ envii export my-api prod              # print to stdout
 envii export my-api prod -o .env      # write to a file
 ```
 
+### List vault contents
+```sh
+envii ls                     # projects, one per line
+envii ls my-api              # environments of my-api
+envii ls my-api dev          # variable keys, sorted
+envii ls --long my-api dev   # keys with secret markers (`KEY *`)
+```
+
 ### Import from a `.env` file
 ```sh
 envii import -f .env.production
