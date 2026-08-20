@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/trickylab/envii/internal/cli"
@@ -22,10 +23,11 @@ func (t *testIO) Getenv(k string) string {
 	}
 	return t.env[k]
 }
-func (t *testIO) Stdin() io.Reader                 { return t.stdin }
-func (t *testIO) Stdout() io.Writer                { return t.stdout }
-func (t *testIO) Stderr() io.Writer                { return t.stderr }
-func (t *testIO) ReadPassword(fd int) ([]byte, error) { return t.pass, nil }
+func (t *testIO) Stdin() io.Reader                     { return t.stdin }
+func (t *testIO) Stdout() io.Writer                    { return t.stdout }
+func (t *testIO) Stderr() io.Writer                    { return t.stderr }
+func (t *testIO) ReadPassword(fd int) ([]byte, error)  { return t.pass, nil }
+func (t *testIO) ReadFile(path string) ([]byte, error) { return os.ReadFile(path) }
 
 func TestIOAbstraction(t *testing.T) {
 	tests := []struct {

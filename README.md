@@ -101,14 +101,31 @@ envii import -f .env.staging --overwrite
 The import command prompts you to select or create a project and environment.
 Existing keys are skipped by default; use `--overwrite` to replace them.
 
+### Non-interactive use (CI)
+
+Commands that need a passphrase (`run`, `export`, `import`, `get`, `env`, `ls`) resolve it in
+this order:
+
+1. `ENVII_PASSPHRASE` environment variable
+2. `--passphrase-file <path>` — reads the passphrase from the file, stripping
+   only trailing line breaks (`\n`, `\r\n`). Recommended for CI: env vars can
+   leak into logs and process listings; keep the file `0600`.
+3. Interactive prompt (default)
+
+```sh
+export ENVII_PASSPHRASE=...                                # 1
+envii export my-api prod --passphrase-file /run/secrets/pw # 2
+envii export my-api prod                                   # 3
+```
+
 ### Shell completion
 ```sh
 echo 'source <(envii completion zsh)' >> ~/.zshrc
 # or for bash:
 echo 'source <(envii completion bash)' >> ~/.bashrc
 ```
-Project, environment, and key arguments are tab-completed in `run` and `export`
-once the vault is readable (e.g. `ENVII_PASSPHRASE` is set).
+Project, environment, and key arguments are tab-completed in `run`, `export`,
+`get`, and `env` once the vault is readable (e.g. `ENVII_PASSPHRASE` is set).
 
 ## How it works
 
