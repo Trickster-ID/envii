@@ -92,15 +92,7 @@ func loadVault() (*model.Vault, *store.Store, string, error) {
 
 // resolveEnv looks up a project/env pair in the vault.
 func resolveEnv(v *model.Vault, projectName, envName string) (*model.Env, error) {
-	p := v.FindProject(projectName)
-	if p == nil {
-		return nil, fmt.Errorf("project %q not found", projectName)
-	}
-	e := p.FindEnv(envName)
-	if e == nil {
-		return nil, fmt.Errorf("env %q not found in project %q", envName, projectName)
-	}
-	return e, nil
+	return lookupEnv(v, projectName, envName, false)
 }
 
 func promptPassphrase(label string) (string, error) {

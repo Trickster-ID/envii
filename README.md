@@ -81,6 +81,31 @@ envii import -f .env.staging --overwrite
 The import command prompts you to select or create a project and environment.
 Existing keys are skipped by default; use `--overwrite` to replace them.
 
+### Environment inheritance
+An environment can list a `base` — another environment in the same project it
+inherits variables from. The environment's own variables override the base's:
+
+```json
+{
+  "name": "prod",
+  "base": "shared",
+  "vars": [{ "key": "LOG_LEVEL", "value": "warn" }]
+}
+```
+
+`prod` here exposes every variable from `shared` plus its own `LOG_LEVEL`.
+The `base` field is set by editing the vault JSON directly today; TUI support
+is planned for a follow-up.
+
+Opt in with `--resolve` to fold the base chain before use:
+
+```sh
+envii export my-api prod --resolve
+envii export my-api prod -o .env --resolve
+```
+
+Chains may be up to 8 levels deep; cycles are reported as errors.
+
 ## How it works
 
 ```
