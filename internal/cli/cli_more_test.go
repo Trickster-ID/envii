@@ -1070,10 +1070,11 @@ func TestEnvCmd(t *testing.T) {
 	})
 
 	t.Run("missing project", func(t *testing.T) {
+		out := &bytes.Buffer{}
 		withIO(t, &fakeIO{
 			env:    map[string]string{"ENVII_PASSPHRASE": pass},
 			stdin:  &bytes.Buffer{},
-			stdout: &bytes.Buffer{},
+			stdout: out,
 			stderr: &bytes.Buffer{},
 		})
 		cmd := envCmd()
@@ -1081,19 +1082,26 @@ func TestEnvCmd(t *testing.T) {
 		if err := cmd.Execute(); err == nil {
 			t.Fatal("expected error")
 		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout on error = %q, want empty", out.String())
+		}
 	})
 
 	t.Run("wrong arg count", func(t *testing.T) {
+		out := &bytes.Buffer{}
 		withIO(t, &fakeIO{
 			env:    map[string]string{"ENVII_PASSPHRASE": pass},
 			stdin:  &bytes.Buffer{},
-			stdout: &bytes.Buffer{},
+			stdout: out,
 			stderr: &bytes.Buffer{},
 		})
 		cmd := envCmd()
 		cmd.SetArgs([]string{"api"})
 		if err := cmd.Execute(); err == nil {
 			t.Fatal("expected error")
+		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout on error = %q, want empty", out.String())
 		}
 	})
 }
