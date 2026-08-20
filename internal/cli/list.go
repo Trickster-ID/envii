@@ -45,7 +45,7 @@ func lsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ls [project] [env]",
 		Short: "List projects, environments, or keys",
-		Args:  cobra.MaximumNArgs(3),
+		Args:  cobra.MaximumNArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			v, _, _, err := loadVault()
 			if err != nil {
@@ -92,6 +92,8 @@ func lsCmd() *cobra.Command {
 
 // completeVault returns suggestions from loadVault for the given positional
 // arg: pos 0 = projects, 1 = envs of args[0], 2 = keys of args[0]/args[1].
+// Mounted on exportCmd and runCmd; when getCmd/envCmd land from sibling
+// branches, mount completeVault on them too (same pos mapping).
 func completeVault(pos int) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 	return func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
 		if len(args) != pos {

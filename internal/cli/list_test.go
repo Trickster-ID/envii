@@ -158,6 +158,23 @@ func TestLsCmd(t *testing.T) {
 			t.Fatal("expected arg error")
 		}
 	})
+
+	t.Run("three args rejected", func(t *testing.T) {
+		_, err := run("a", "b", "c")
+		if err == nil || !strings.Contains(err.Error(), "at most 2 arg") {
+			t.Fatalf("expected cobra arg-limit error, got %v", err)
+		}
+	})
+
+	t.Run("l shorthand matches long", func(t *testing.T) {
+		out, err := run("-l", "api", "dev")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out != "PORT\nTOKEN *\n" {
+			t.Fatalf("out %q", out)
+		}
+	})
 }
 
 func TestCompleteVault(t *testing.T) {
