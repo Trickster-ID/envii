@@ -206,7 +206,11 @@ func TestPromptPassphraseFile(t *testing.T) {
 			if got != tt.wantPass {
 				t.Fatalf("pass = %q, want %q", got, tt.wantPass)
 			}
-			if tt.env == nil && len(f.readFileCalls) != 1 {
+			if tt.env != nil {
+				if len(f.readFileCalls) != 0 {
+					t.Fatalf("readFileCalls = %v, want 0 calls (env must win)", f.readFileCalls)
+				}
+			} else if len(f.readFileCalls) != 1 {
 				t.Fatalf("readFileCalls = %v, want 1 call", f.readFileCalls)
 			}
 		})
