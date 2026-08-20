@@ -20,8 +20,10 @@ type Project struct {
 }
 
 // Env is a named set of variables (e.g. "dev", "staging", "prod").
+// Base optionally names another env in the same project to inherit from.
 type Env struct {
 	Name string `json:"name"`
+	Base string `json:"base,omitempty"`
 	Vars []*Var `json:"vars"`
 }
 
@@ -61,6 +63,16 @@ func (p *Project) FindEnv(name string) *Env {
 	for _, e := range p.Envs {
 		if e.Name == name {
 			return e
+		}
+	}
+	return nil
+}
+
+// FindVar returns the var with the given key, or nil.
+func (e *Env) FindVar(key string) *Var {
+	for _, v := range e.Vars {
+		if v.Key == key {
+			return v
 		}
 	}
 	return nil

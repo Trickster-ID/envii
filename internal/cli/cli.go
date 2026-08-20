@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -14,7 +15,7 @@ import (
 	"github.com/trickylab/envii/internal/tui"
 )
 
-var vaultPath string
+var vaultPath, passphraseFile string
 
 // runProgram starts the TUI; overridden in tests.
 var runProgram = func(m tea.Model) error {
@@ -31,8 +32,9 @@ func Execute(version string) error {
 		RunE:    runTUI,
 	}
 	root.PersistentFlags().StringVar(&vaultPath, "vault", "", "path to vault file (default: ~/.config/envii/vault.age)")
+	root.PersistentFlags().StringVar(&passphraseFile, "passphrase-file", "", "read vault passphrase from this file")
 
-	root.AddCommand(runCmd(), exportCmd(), importCmd())
+	root.AddCommand(runCmd(), exportCmd(), importCmd(), getCmd(), envCmd(), lsCmd())
 	return root.Execute()
 }
 
@@ -92,20 +94,23 @@ func loadVault() (*model.Vault, *store.Store, string, error) {
 
 // resolveEnv looks up a project/env pair in the vault.
 func resolveEnv(v *model.Vault, projectName, envName string) (*model.Env, error) {
-	p := v.FindProject(projectName)
-	if p == nil {
-		return nil, fmt.Errorf("project %q not found", projectName)
-	}
-	e := p.FindEnv(envName)
-	if e == nil {
-		return nil, fmt.Errorf("env %q not found in project %q", envName, projectName)
-	}
-	return e, nil
+	return lookupEnv(v, projectName, envName, false)
 }
 
 func promptPassphrase(label string) (string, error) {
 	// Allow bypassing the interactive prompt via env var (useful for demos/CI).
 	if p := defaultIO.Getenv("ENVII_PASSPHRASE"); p != "" {
+		return p, nil
+	}
+	if passphraseFile != "" {
+		b, err := defaultIO.ReadFile(passphraseFile)
+		if err != nil {
+			return "", fmt.Errorf("read passphrase file: %w", err)
+		}
+		p := strings.TrimRight(string(b), "\r\n")
+		if p == "" {
+			return "", errors.New("passphrase file is empty")
+		}
 		return p, nil
 	}
 	fmt.Fprint(defaultIO.Stderr(), label)

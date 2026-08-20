@@ -57,12 +57,15 @@ func runCmd() *cobra.Command {
 			return nil
 		},
 	}
+	// completion: extend when get/env land
+	cmd.ValidArgsFunction = completeVault(1)
 	return cmd
 }
 
-// exportCmd: envii export <project> <env> [-o file]
+// exportCmd: envii export <project> <env> [-o file] [--resolve]
 func exportCmd() *cobra.Command {
 	var out string
+	var resolve bool
 	cmd := &cobra.Command{
 		Use:   "export <project> <env>",
 		Short: "Export an env as a .env file (stdout by default)",
@@ -72,7 +75,7 @@ func exportCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			env, err := resolveEnv(v, args[0], args[1])
+			env, err := lookupEnv(v, args[0], args[1], resolve)
 			if err != nil {
 				return err
 			}
@@ -90,7 +93,83 @@ func exportCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&out, "out", "o", "", "output file (default: stdout)")
+	cmd.Flags().BoolVar(&resolve, "resolve", false, "resolve env inheritance (base chain) before use")
+	cmd.ValidArgsFunction = completeVault(1)
 	return cmd
+}
+
+// getCmd: envii get <project> <env> <KEY> [--resolve]
+func getCmd() *cobra.Command {
+	var resolve bool
+	cmd := &cobra.Command{
+		Use:   "get <project> <env> <KEY>",
+		Short: "Print a single variable's value (for use in shell scripts)",
+		Example: `  envii get my-api dev DB_URL
+  export DB_URL=$(envii get my-api dev DB_URL)`,
+		Args: cobra.ExactArgs(3),
+		RunE: func(_ *cobra.Command, args []string) error {
+			v, _, _, err := loadVault()
+			if err != nil {
+				return err
+			}
+			env, err := lookupEnv(v, args[0], args[1], resolve)
+			if err != nil {
+				return err
+			}
+			variable := env.FindVar(args[2])
+			if variable == nil {
+				return fmt.Errorf("key %q not found in project %q env %q", args[2], args[0], args[1])
+			}
+			fmt.Fprintln(defaultIO.Stdout(), variable.Value)
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&resolve, "resolve", false, "resolve env inheritance (base chain) before use")
+	cmd.ValidArgsFunction = completeVault(2)
+	return cmd
+}
+
+// envCmd: envii env <project> <env> [--resolve]  (eval-able export lines)
+func envCmd() *cobra.Command {
+	var resolve bool
+	cmd := &cobra.Command{
+		Use:   "env <project> <env>",
+		Short: "Print shell export statements for an env (eval-able)",
+		Example: `  eval "$(envii env my-api dev)"
+  eval "$(envii env my-api prod)" && ./run-migrations`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			v, _, _, err := loadVault()
+			if err != nil {
+				return err
+			}
+			env, err := lookupEnv(v, args[0], args[1], resolve)
+			if err != nil {
+				return err
+			}
+			fmt.Fprint(defaultIO.Stdout(), runner.Shell(env))
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&resolve, "resolve", false, "resolve env inheritance (base chain) before use")
+	cmd.ValidArgsFunction = completeVault(1)
+	return cmd
+}
+
+// lookupEnv resolves a project/env pair, optionally folding the inheritance chain.
+func lookupEnv(v *model.Vault, projectName, envName string, resolve bool) (*model.Env, error) {
+	p := v.FindProject(projectName)
+	if p == nil {
+		return nil, fmt.Errorf("project %q not found", projectName)
+	}
+	if resolve {
+		return p.ResolveEnv(envName)
+	}
+	e := p.FindEnv(envName)
+	if e == nil {
+		return nil, fmt.Errorf("env %q not found in project %q", envName, projectName)
+	}
+	return e, nil
 }
 
 // importCmd: envii import -f .env.production [--overwrite]

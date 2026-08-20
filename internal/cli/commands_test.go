@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -159,4 +161,51 @@ func TestChoiceHelpers(t *testing.T) {
 
 func reader(s string) *bufio.Reader {
 	return bufio.NewReader(strings.NewReader(s))
+}
+
+func TestGetCmd(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "vault.age")
+	withVaultPath(t, path)
+	withIO(t, &fakeIO{})
+	code := withExit(t)
+	seedVault(t, path, "pw", sampleVault())
+
+	tests := []struct {
+		name       string
+		args       []string
+		wantOut    string
+		wantErrSub string
+	}{
+		{"value", []string{"api", "dev", "PORT"}, "8080\n", ""},
+		{"secret raw", []string{"api", "dev", "TOKEN"}, "s3cr3t\n", ""},
+		{"missing project", []string{"web", "dev", "PORT"}, "", `project "web" not found`},
+		{"missing env", []string{"api", "prod", "PORT"}, "", `env "prod" not found`},
+		{"missing key", []string{"api", "dev", "NOPE"}, "", `key "NOPE" not found`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			io := &fakeIO{
+				env:    map[string]string{"ENVII_PASSPHRASE": "pw"},
+				stdin:  &bytes.Buffer{},
+				stdout: &bytes.Buffer{},
+				stderr: &bytes.Buffer{},
+			}
+			withIO(t, io)
+			err := getCmd().RunE(nil, tt.args)
+			if tt.wantErrSub != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErrSub) {
+					t.Fatalf("err = %v, want %q", err, tt.wantErrSub)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := io.stdout.String(); got != tt.wantOut {
+				t.Fatalf("stdout = %q, want %q", got, tt.wantOut)
+			}
+			_ = code
+		})
+	}
 }

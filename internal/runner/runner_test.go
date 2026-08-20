@@ -90,6 +90,28 @@ func TestQuote(t *testing.T) {
 	}
 }
 
+func TestShell(t *testing.T) {
+	env := &model.Env{Name: "dev", Vars: []*model.Var{
+		{Key: "PORT", Value: "8080"},
+		{Key: "MSG", Value: "it's alive"},
+		{Key: "EMPTY", Value: ""},
+		{Key: "MULTI", Value: "a\nb"},
+	}}
+	want := "export EMPTY=''\n" +
+		"export MSG='it'\\''s alive'\n" +
+		"export MULTI='a\nb'\n" +
+		"export PORT='8080'\n"
+	if got := Shell(env); got != want {
+		t.Fatalf("Shell() = %q, want %q", got, want)
+	}
+}
+
+func TestShellEmptyEnv(t *testing.T) {
+	if got := Shell(&model.Env{}); got != "" {
+		t.Fatalf("Shell(empty) = %q, want empty", got)
+	}
+}
+
 type assertErr struct{}
 
 func (assertErr) Error() string { return "assert" }

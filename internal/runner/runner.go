@@ -65,6 +65,29 @@ func Dotenv(env *model.Env) string {
 	return b.String()
 }
 
+// Shell renders an env as POSIX shell export statements, sorted by key.
+// Suitable for: eval "$(envii env project envname)"
+func Shell(env *model.Env) string {
+	vars := make([]*model.Var, len(env.Vars))
+	copy(vars, env.Vars)
+	sort.Slice(vars, func(i, j int) bool { return vars[i].Key < vars[j].Key })
+
+	var b strings.Builder
+	for _, v := range vars {
+		b.WriteString("export ")
+		b.WriteString(v.Key)
+		b.WriteString("=")
+		b.WriteString(shellQuote(v.Value))
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// shellQuote single-quotes a value, escaping embedded single quotes as '\''.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // quote wraps values containing whitespace or special chars in double quotes.
 func quote(s string) string {
 	if s == "" {

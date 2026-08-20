@@ -1,6 +1,24 @@
 package model
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
+
+func TestEnvBaseJSONRoundTrip(t *testing.T) {
+	raw := []byte(`{"name":"prod","base":"shared","vars":[]}`)
+	var e Env
+	if err := json.Unmarshal(raw, &e); err != nil {
+		t.Fatal(err)
+	}
+	if e.Base != "shared" {
+		t.Fatalf("Base = %q", e.Base)
+	}
+	out, _ := json.Marshal(&Env{Name: "dev"})
+	if string(out) != `{"name":"dev","vars":null}` {
+		t.Fatalf("Base must be omitted when empty, got %s", out)
+	}
+}
 
 func TestNewVault(t *testing.T) {
 	v := NewVault()
@@ -62,6 +80,24 @@ func TestMap(t *testing.T) {
 	}
 	if got["B"] != "two" {
 		t.Fatalf("B got %q, want two", got["B"])
+	}
+}
+
+func TestFindVar(t *testing.T) {
+	env := &Env{Vars: []*Var{{Key: "PORT", Value: "8080"}, {Key: "TOKEN", Value: "x", Secret: true}}}
+
+	if got := env.FindVar("PORT"); got == nil || got.Value != "8080" {
+		t.Fatalf("FindVar(PORT) = %+v", got)
+	}
+	if got := env.FindVar("TOKEN"); got == nil || !got.Secret {
+		t.Fatalf("FindVar(TOKEN) = %+v", got)
+	}
+	if got := env.FindVar("MISSING"); got != nil {
+		t.Fatalf("FindVar(MISSING) = %+v, want nil", got)
+	}
+	empty := &Env{}
+	if got := empty.FindVar("X"); got != nil {
+		t.Fatalf("FindVar on empty env = %+v, want nil", got)
 	}
 }
 

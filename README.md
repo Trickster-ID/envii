@@ -73,6 +73,26 @@ envii export my-api prod              # print to stdout
 envii export my-api prod -o .env      # write to a file
 ```
 
+### Get a single value
+```sh
+envii get my-api dev DB_URL
+export DB_URL=$(envii get my-api dev DB_URL)
+```
+
+### Load an env into your shell
+```sh
+eval "$(envii env my-api dev)"
+```
+Prints eval-able `export KEY='value'` lines. Works with POSIX shells (bash/zsh).
+
+### List vault contents
+```sh
+envii ls                     # projects, one per line
+envii ls my-api              # environments of my-api
+envii ls my-api dev          # variable keys, sorted
+envii ls --long my-api dev   # keys with secret markers (`KEY *`)
+```
+
 ### Import from a `.env` file
 ```sh
 envii import -f .env.production
@@ -80,6 +100,59 @@ envii import -f .env.staging --overwrite
 ```
 The import command prompts you to select or create a project and environment.
 Existing keys are skipped by default; use `--overwrite` to replace them.
+
+### Non-interactive use (CI)
+
+Commands that need a passphrase (`run`, `export`, `import`, `get`, `env`, `ls`) resolve it in
+this order:
+
+1. `ENVII_PASSPHRASE` environment variable
+2. `--passphrase-file <path>` — reads the passphrase from the file, stripping
+   only trailing line breaks (`\n`, `\r\n`). Recommended for CI: env vars can
+   leak into logs and process listings; keep the file `0600`.
+3. Interactive prompt (default)
+
+```sh
+export ENVII_PASSPHRASE=...                                # 1
+envii export my-api prod --passphrase-file /run/secrets/pw # 2
+envii export my-api prod                                   # 3
+```
+
+### Shell completion
+```sh
+echo 'source <(envii completion zsh)' >> ~/.zshrc
+# or for bash:
+echo 'source <(envii completion bash)' >> ~/.bashrc
+```
+Project, environment, and key arguments are tab-completed in `run`, `export`,
+`get`, and `env` once the vault is readable (e.g. `ENVII_PASSPHRASE` is set).
+
+### Environment inheritance
+An environment can list a `base` — another environment in the same project it
+inherits variables from. The environment's own variables override the base's:
+
+```json
+{
+  "name": "prod",
+  "base": "shared",
+  "vars": [{ "key": "LOG_LEVEL", "value": "warn" }]
+}
+```
+
+`prod` here exposes every variable from `shared` plus its own `LOG_LEVEL`.
+The `base` field is set by editing the vault JSON directly today; TUI support
+is planned for a follow-up.
+
+Opt in with `--resolve` to fold the base chain before use:
+
+```sh
+envii export my-api prod --resolve
+envii export my-api prod -o .env --resolve
+envii get my-api prod LOG_LEVEL --resolve
+eval "$(envii env my-api prod --resolve)"
+```
+
+Chains may be up to 8 levels deep; cycles are reported as errors.
 
 ## How it works
 
