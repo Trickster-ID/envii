@@ -32,7 +32,7 @@ func Execute(version string) error {
 	}
 	root.PersistentFlags().StringVar(&vaultPath, "vault", "", "path to vault file (default: ~/.config/envii/vault.age)")
 
-	root.AddCommand(runCmd(), exportCmd(), importCmd())
+	root.AddCommand(runCmd(), exportCmd(), importCmd(), lsCmd())
 	return root.Execute()
 }
 

@@ -57,6 +57,8 @@ func runCmd() *cobra.Command {
 			return nil
 		},
 	}
+	// completion: extend when get/env land
+	cmd.ValidArgsFunction = completeVault(1)
 	return cmd
 }
 
@@ -90,6 +92,7 @@ func exportCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&out, "out", "o", "", "output file (default: stdout)")
+	cmd.ValidArgsFunction = completeVault(1)
 	return cmd
 }
 

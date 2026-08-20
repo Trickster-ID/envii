@@ -73,6 +73,14 @@ envii export my-api prod              # print to stdout
 envii export my-api prod -o .env      # write to a file
 ```
 
+### List vault contents
+```sh
+envii ls                     # projects, one per line
+envii ls my-api              # environments of my-api
+envii ls my-api dev          # variable keys, sorted
+envii ls --long my-api dev   # keys with secret markers (`KEY *`)
+```
+
 ### Import from a `.env` file
 ```sh
 envii import -f .env.production
@@ -80,6 +88,15 @@ envii import -f .env.staging --overwrite
 ```
 The import command prompts you to select or create a project and environment.
 Existing keys are skipped by default; use `--overwrite` to replace them.
+
+### Shell completion
+```sh
+echo 'source <(envii completion zsh)' >> ~/.zshrc
+# or for bash:
+echo 'source <(envii completion bash)' >> ~/.bashrc
+```
+Project, environment, and key arguments are tab-completed in `run` and `export`
+once the vault is readable (e.g. `ENVII_PASSPHRASE` is set).
 
 ## How it works
 
