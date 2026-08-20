@@ -62,9 +62,10 @@ func runCmd() *cobra.Command {
 	return cmd
 }
 
-// exportCmd: envii export <project> <env> [-o file]
+// exportCmd: envii export <project> <env> [-o file] [--resolve]
 func exportCmd() *cobra.Command {
 	var out string
+	var resolve bool
 	cmd := &cobra.Command{
 		Use:   "export <project> <env>",
 		Short: "Export an env as a .env file (stdout by default)",
@@ -74,7 +75,7 @@ func exportCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			env, err := resolveEnv(v, args[0], args[1])
+			env, err := lookupEnv(v, args[0], args[1], resolve)
 			if err != nil {
 				return err
 			}
@@ -92,12 +93,14 @@ func exportCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&out, "out", "o", "", "output file (default: stdout)")
+	cmd.Flags().BoolVar(&resolve, "resolve", false, "resolve env inheritance (base chain) before use")
 	cmd.ValidArgsFunction = completeVault(1)
 	return cmd
 }
 
-// getCmd: envii get <project> <env> <KEY>
+// getCmd: envii get <project> <env> <KEY> [--resolve]
 func getCmd() *cobra.Command {
+	var resolve bool
 	cmd := &cobra.Command{
 		Use:   "get <project> <env> <KEY>",
 		Short: "Print a single variable's value (for use in shell scripts)",
@@ -109,7 +112,7 @@ func getCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			env, err := resolveEnv(v, args[0], args[1])
+			env, err := lookupEnv(v, args[0], args[1], resolve)
 			if err != nil {
 				return err
 			}
@@ -121,12 +124,14 @@ func getCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&resolve, "resolve", false, "resolve env inheritance (base chain) before use")
 	cmd.ValidArgsFunction = completeVault(2)
 	return cmd
 }
 
-// envCmd: envii env <project> <env>  (eval-able export lines)
+// envCmd: envii env <project> <env> [--resolve]  (eval-able export lines)
 func envCmd() *cobra.Command {
+	var resolve bool
 	cmd := &cobra.Command{
 		Use:   "env <project> <env>",
 		Short: "Print shell export statements for an env (eval-able)",
@@ -138,7 +143,7 @@ func envCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			env, err := resolveEnv(v, args[0], args[1])
+			env, err := lookupEnv(v, args[0], args[1], resolve)
 			if err != nil {
 				return err
 			}
@@ -146,8 +151,25 @@ func envCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&resolve, "resolve", false, "resolve env inheritance (base chain) before use")
 	cmd.ValidArgsFunction = completeVault(1)
 	return cmd
+}
+
+// lookupEnv resolves a project/env pair, optionally folding the inheritance chain.
+func lookupEnv(v *model.Vault, projectName, envName string, resolve bool) (*model.Env, error) {
+	p := v.FindProject(projectName)
+	if p == nil {
+		return nil, fmt.Errorf("project %q not found", projectName)
+	}
+	if resolve {
+		return p.ResolveEnv(envName)
+	}
+	e := p.FindEnv(envName)
+	if e == nil {
+		return nil, fmt.Errorf("env %q not found in project %q", envName, projectName)
+	}
+	return e, nil
 }
 
 // importCmd: envii import -f .env.production [--overwrite]

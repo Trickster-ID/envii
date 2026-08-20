@@ -1086,6 +1086,82 @@ func TestRunCmdExecError(t *testing.T) {
 	}
 }
 
+func TestExportResolve(t *testing.T) {
+	pass := "pw"
+	path := filepath.Join(t.TempDir(), "vault.age")
+	v := &model.Vault{
+		Version: 1,
+		Projects: []*model.Project{{
+			Name: "api",
+			Envs: []*model.Env{
+				{Name: "shared", Vars: []*model.Var{{Key: "VAR", Value: "base"}}},
+				{Name: "dev", Base: "shared", Vars: []*model.Var{
+					{Key: "VAR", Value: "overridden"},
+					{Key: "EXTRA", Value: "1"},
+				}},
+				{Name: "orphan", Base: "ghost", Vars: []*model.Var{{Key: "RAW", Value: "1"}}},
+			},
+		}},
+	}
+	seedVault(t, path, pass, v)
+	withVaultPath(t, path)
+
+	t.Run("resolve on", func(t *testing.T) {
+		out := &bytes.Buffer{}
+		withIO(t, &fakeIO{
+			env:    map[string]string{"ENVII_PASSPHRASE": pass},
+			stdin:  &bytes.Buffer{},
+			stdout: out,
+			stderr: &bytes.Buffer{},
+		})
+		cmd := exportCmd()
+		if err := cmd.ParseFlags([]string{"--resolve"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := cmd.RunE(cmd, []string{"api", "dev"}); err != nil {
+			t.Fatal(err)
+		}
+		s := out.String()
+		if !strings.Contains(s, "EXTRA=1") || !strings.Contains(s, "VAR=overridden") {
+			t.Fatalf("stdout %q", s)
+		}
+	})
+
+	t.Run("resolve off keeps raw env", func(t *testing.T) {
+		out := &bytes.Buffer{}
+		withIO(t, &fakeIO{
+			env:    map[string]string{"ENVII_PASSPHRASE": pass},
+			stdin:  &bytes.Buffer{},
+			stdout: out,
+			stderr: &bytes.Buffer{},
+		})
+		cmd := exportCmd()
+		if err := cmd.RunE(cmd, []string{"api", "orphan"}); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out.String(), "RAW=1") {
+			t.Fatalf("stdout %q", out.String())
+		}
+	})
+
+	t.Run("resolve on with missing base errors", func(t *testing.T) {
+		withIO(t, &fakeIO{
+			env:    map[string]string{"ENVII_PASSPHRASE": pass},
+			stdin:  &bytes.Buffer{},
+			stdout: &bytes.Buffer{},
+			stderr: &bytes.Buffer{},
+		})
+		cmd := exportCmd()
+		if err := cmd.ParseFlags([]string{"--resolve"}); err != nil {
+			t.Fatal(err)
+		}
+		err := cmd.RunE(cmd, []string{"api", "orphan"})
+		if err == nil || !strings.Contains(err.Error(), `base env "ghost" not found`) {
+			t.Fatalf("err = %v", err)
+		}
+	})
+}
+
 func TestImportSaveError(t *testing.T) {
 	pass := "secret"
 	dir := t.TempDir()

@@ -20,8 +20,10 @@ type Project struct {
 }
 
 // Env is a named set of variables (e.g. "dev", "staging", "prod").
+// Base optionally names another env in the same project to inherit from.
 type Env struct {
 	Name string `json:"name"`
+	Base string `json:"base,omitempty"`
 	Vars []*Var `json:"vars"`
 }
 
