@@ -121,6 +121,7 @@ func getCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.ValidArgsFunction = completeVault(2)
 	return cmd
 }
 
@@ -145,6 +146,7 @@ func envCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.ValidArgsFunction = completeVault(1)
 	return cmd
 }
 
