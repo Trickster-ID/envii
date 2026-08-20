@@ -93,6 +93,34 @@ func exportCmd() *cobra.Command {
 	return cmd
 }
 
+// getCmd: envii get <project> <env> <KEY>
+func getCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get <project> <env> <KEY>",
+		Short: "Print a single variable's value (for use in shell scripts)",
+		Example: `  envii get my-api dev DB_URL
+  export DB_URL=$(envii get my-api dev DB_URL)`,
+		Args: cobra.ExactArgs(3),
+		RunE: func(_ *cobra.Command, args []string) error {
+			v, _, _, err := loadVault()
+			if err != nil {
+				return err
+			}
+			env, err := resolveEnv(v, args[0], args[1])
+			if err != nil {
+				return err
+			}
+			variable := env.FindVar(args[2])
+			if variable == nil {
+				return fmt.Errorf("key %q not found in project %q env %q", args[2], args[0], args[1])
+			}
+			fmt.Fprintln(defaultIO.Stdout(), variable.Value)
+			return nil
+		},
+	}
+	return cmd
+}
+
 // importCmd: envii import -f .env.production [--overwrite]
 func importCmd() *cobra.Command {
 	var file string

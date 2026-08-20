@@ -73,6 +73,12 @@ envii export my-api prod              # print to stdout
 envii export my-api prod -o .env      # write to a file
 ```
 
+### Get a single value
+```sh
+envii get my-api dev DB_URL
+export DB_URL=$(envii get my-api dev DB_URL)
+```
+
 ### Import from a `.env` file
 ```sh
 envii import -f .env.production

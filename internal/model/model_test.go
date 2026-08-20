@@ -65,6 +65,24 @@ func TestMap(t *testing.T) {
 	}
 }
 
+func TestFindVar(t *testing.T) {
+	env := &Env{Vars: []*Var{{Key: "PORT", Value: "8080"}, {Key: "TOKEN", Value: "x", Secret: true}}}
+
+	if got := env.FindVar("PORT"); got == nil || got.Value != "8080" {
+		t.Fatalf("FindVar(PORT) = %+v", got)
+	}
+	if got := env.FindVar("TOKEN"); got == nil || !got.Secret {
+		t.Fatalf("FindVar(TOKEN) = %+v", got)
+	}
+	if got := env.FindVar("MISSING"); got != nil {
+		t.Fatalf("FindVar(MISSING) = %+v, want nil", got)
+	}
+	empty := &Env{}
+	if got := empty.FindVar("X"); got != nil {
+		t.Fatalf("FindVar on empty env = %+v, want nil", got)
+	}
+}
+
 func TestIsSecret(t *testing.T) {
 	secretKeys := []string{
 		"SECRET",
