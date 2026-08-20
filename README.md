@@ -79,6 +79,12 @@ envii get my-api dev DB_URL
 export DB_URL=$(envii get my-api dev DB_URL)
 ```
 
+### Load an env into your shell
+```sh
+eval "$(envii env my-api dev)"
+```
+Prints eval-able `export KEY='value'` lines. Works with POSIX shells (bash/zsh).
+
 ### Import from a `.env` file
 ```sh
 envii import -f .env.production
